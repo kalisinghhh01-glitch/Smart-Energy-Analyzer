@@ -5,9 +5,49 @@ import json
 import pandas as pd
 from pathlib import Path
 
-ROOT = Path(__file__).parent
-ENGINE = ROOT / "energy_engine.exe"
+def run_cpp(*args):
+    source = ROOT / "main.cpp"
 
+    if not ENGINE.exists() or (
+        source.exists() and
+        source.stat().st_mtime > ENGINE.stat().st_mtime
+    ):
+        if os.name == "nt":
+            st.error("C++ engine missing. Run build.bat first.")
+            st.stop()
+
+        build = subprocess.run(
+            ["g++", "-std=c++17", "-O2",
+             str(source), "-o", str(ENGINE)],
+            cwd=ROOT,
+            capture_output=True,
+            text=True
+        )
+
+        if build.returncode != 0:
+            st.error("C++ compilation failed")
+            st.code(build.stderr)
+            st.stop()
+
+    result = subprocess.run(
+        [str(ENGINE), *map(str, args)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True
+    )
+
+    try:
+        data = json.loads(result.stdout)
+    except Exception:
+        st.error("C++ engine error")
+        st.code(result.stderr or result.stdout)
+        st.stop()
+
+    if not data.get("ok"):
+        st.error(data.get("error", "Operation failed"))
+        return None
+
+    return data
 st.set_page_config(
     page_title="Smart Energy Analyzer",
     page_icon="⚡",
