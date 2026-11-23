@@ -3,57 +3,27 @@ import streamlit as st
 import subprocess
 import json
 import pandas as pd
+import os
 from pathlib import Path
 
-def run_cpp(*args):
-    source = ROOT / "main.cpp"
+# PROJECT PATHS
+ROOT = Path(__file__).parent
 
-    if not ENGINE.exists() or (
-        source.exists() and
-        source.stat().st_mtime > ENGINE.stat().st_mtime
-    ):
-        if os.name == "nt":
-            st.error("C++ engine missing. Run build.bat first.")
-            st.stop()
+if os.name == "nt":
+    ENGINE = ROOT / "energy_engine.exe"
+else:
+    ENGINE = ROOT / "energy_engine"
 
-        build = subprocess.run(
-            ["g++", "-std=c++17", "-O2",
-             str(source), "-o", str(ENGINE)],
-            cwd=ROOT,
-            capture_output=True,
-            text=True
-        )
 
-        if build.returncode != 0:
-            st.error("C++ compilation failed")
-            st.code(build.stderr)
-            st.stop()
-
-    result = subprocess.run(
-        [str(ENGINE), *map(str, args)],
-        cwd=ROOT,
-        capture_output=True,
-        text=True
-    )
-
-    try:
-        data = json.loads(result.stdout)
-    except Exception:
-        st.error("C++ engine error")
-        st.code(result.stderr or result.stdout)
-        st.stop()
-
-    if not data.get("ok"):
-        st.error(data.get("error", "Operation failed"))
-        return None
-
-    return data
+# PAGE CONFIGURATION
 st.set_page_config(
     page_title="Smart Energy Analyzer",
     page_icon="⚡",
     layout="wide"
 )
 
+
+# CUSTOM DASHBOARD DESIGN
 st.markdown("""
 <style>
 .stApp {
@@ -78,15 +48,22 @@ st.markdown("""
     color: white;
     font-size: 35px;
 }
-.hero p { color: #b8d0dc; }
+.hero p {
+    color: #b8d0dc;
+}
 .metric {
     background: #102b3c;
     border: 1px solid #285064;
     padding: 20px;
     border-radius: 15px;
 }
-.metric small { color: #a9c5d2; }
-.metric h2 { color: white; margin-top: 8px; }
+.metric small {
+    color: #a9c5d2;
+}
+.metric h2 {
+    color: white;
+    margin-top: 8px;
+}
 .stButton button {
     border-radius: 10px;
     font-weight: bold;
@@ -95,10 +72,42 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+# C++ ENGINE FUNCTION
 def run_cpp(*args):
-    if not ENGINE.exists():
-        st.error("C++ engine missing. Run build.bat first.")
+
+    source = ROOT / "main.cpp"
+
+    if not source.exists():
+        st.error("main.cpp file is missing.")
         st.stop()
+
+    if (
+        not ENGINE.exists()
+        or source.stat().st_mtime > ENGINE.stat().st_mtime
+    ):
+
+        if os.name == "nt":
+            st.error("C++ engine missing. Run build.bat first.")
+            st.stop()
+
+        build = subprocess.run(
+            [
+                "g++",
+                "-std=c++17",
+                "-O2",
+                str(source),
+                "-o",
+                str(ENGINE)
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True
+        )
+
+        if build.returncode != 0:
+            st.error("C++ compilation failed")
+            st.code(build.stderr)
+            st.stop()
 
     result = subprocess.run(
         [str(ENGINE), *map(str, args)],
@@ -109,6 +118,7 @@ def run_cpp(*args):
 
     try:
         data = json.loads(result.stdout)
+
     except Exception:
         st.error("C++ engine error")
         st.code(result.stderr or result.stdout)
@@ -121,11 +131,13 @@ def run_cpp(*args):
     return data
 
 
+# GET APPLIANCES
 def get_appliances():
     result = run_cpp("list")
     return result["appliances"] if result else []
 
 
+# HERO SECTION
 st.markdown("""
 <div class="hero">
 <h1>⚡ Smart Energy Analyzer</h1>
@@ -134,7 +146,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+# SIDEBAR NAVIGATION
 with st.sidebar:
+
     st.title("⚡ ENERGY ANALYZER")
     st.caption("SMART ELECTRICITY MONITORING")
 
@@ -154,6 +168,7 @@ with st.sidebar:
     st.caption("Academic Engineering Project")
 
 
+# LOAD DATA
 appliances = get_appliances()
 summary = run_cpp("summary")
 
@@ -165,7 +180,6 @@ bill = summary["bill"]
 
 
 # DASHBOARD
-
 if page == "Dashboard":
 
     st.subheader("Energy Overview")
@@ -180,6 +194,7 @@ if page == "Dashboard":
     ]
 
     for col, label, value in cards:
+
         with col:
             st.markdown(
                 f"""
@@ -196,9 +211,11 @@ if page == "Dashboard":
     left, right = st.columns([1.5, 1])
 
     with left:
+
         st.subheader("Appliance Consumption")
 
         if appliances:
+
             df = pd.DataFrame(appliances)
 
             st.bar_chart(
@@ -217,10 +234,12 @@ if page == "Dashboard":
                 use_container_width=True,
                 hide_index=True
             )
+
         else:
             st.info("No appliances added yet.")
 
     with right:
+
         st.subheader("Energy Insights")
 
         st.metric(
@@ -235,8 +254,10 @@ if page == "Dashboard":
 
         if summary["level"] == "High":
             st.warning("High energy consumption detected.")
+
         elif summary["level"] == "Medium":
             st.info("Moderate energy consumption.")
+
         else:
             st.success("Energy consumption is low.")
 
@@ -247,11 +268,13 @@ if page == "Dashboard":
 
 
 # ADD APPLIANCE
-
 elif page == "Add Appliance":
 
     st.subheader("➕ Appliance Management")
-    st.write("Add an electrical appliance to your energy profile.")
+
+    st.write(
+        "Add an electrical appliance to your energy profile."
+    )
 
     with st.form("appliance_form", clear_on_submit=True):
 
@@ -286,9 +309,12 @@ elif page == "Add Appliance":
         )
 
         if submitted:
+
             if not name.strip():
                 st.error("Enter an appliance name.")
+
             else:
+
                 result = run_cpp(
                     "add",
                     name.strip(),
@@ -325,6 +351,7 @@ elif page == "Add Appliance":
         )
 
         if st.button("Delete Appliance"):
+
             result = run_cpp("delete", options[selected])
 
             if result:
@@ -333,7 +360,6 @@ elif page == "Add Appliance":
 
 
 # ENERGY ANALYSIS
-
 elif page == "Energy Analysis":
 
     st.subheader("📊 Consumption Analysis")
@@ -366,7 +392,6 @@ elif page == "Energy Analysis":
 
 
 # PREDICTION
-
 elif page == "Prediction":
 
     st.subheader("🔮 Next Month Consumption Prediction")
@@ -405,6 +430,7 @@ elif page == "Prediction":
             )
 
             if result:
+
                 st.success(
                     f"Predicted Usage: "
                     f"{result['prediction']:.2f} kWh"
@@ -418,7 +444,6 @@ elif page == "Prediction":
 
 
 # REPORTS
-
 elif page == "Reports":
 
     st.subheader("📄 Generate Energy Report")
@@ -439,6 +464,10 @@ elif page == "Reports":
 
             report_path = ROOT / "Energy_Report.txt"
 
+            if not report_path.exists():
+                st.error("Report file was not generated.")
+                st.stop()
+
             content = report_path.read_text(
                 encoding="utf-8"
             )
@@ -455,6 +484,7 @@ elif page == "Reports":
             )
 
 
+# FOOTER
 st.divider()
 
 st.caption(
