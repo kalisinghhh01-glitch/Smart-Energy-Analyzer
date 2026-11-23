@@ -1,0 +1,7 @@
+*.exe
+*.obj
+appliances.txt
+Energy_Report.txt
+prediction_history.txt
+__pycache__/
+.venv/
